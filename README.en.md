@@ -2,7 +2,7 @@
 
 [中文](README.md) · **English**
 
-[Fork changes, installation notes, network exposure and device benchmark (Chinese)](docs/second-edition.md)
+[Fork changes, installation notes, network exposure and device benchmark (Chinese)](https://github.com/ryan-yr/iPhone-use/blob/main/docs/second-edition.md)
 
 ![iPhone Use controlling a real iPhone in Codex with a live screen preview](assets/iphone-use-demo.png)
 

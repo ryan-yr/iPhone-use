@@ -9,7 +9,7 @@
 | 使用统计 | 移除 PostHog、Google Analytics 4 发送模块、事件调用、随包统计配置和统计面板模板 | 启动 App 等操作不再触发这两个统计服务的上报，原有统计环境变量无法重新启用发送端 |
 | App 查找 | 移除 Apple 在线目录查询和目录更新脚本，使用设备已安装列表和内置目录 | 未命中时返回空结果；已知 bundle ID 的 App 仍可直接启动 |
 | 服务健康检查 | 本地 WDA 状态探测拒绝 HTTP 重定向 | 健康检查不会跟随跳转访问其他地址 |
-| 安装与适配 | 使用独立的本地插件市场 `iphone-use-no-telemetry`，同步更新 Codex、WorkBuddy 和豆包的安装与注册逻辑 | 保留原有 MCP 名称 `iphone_use` 及 20 个工具；安装后应核对加载的是这个版本 |
+| 安装与适配 | 使用独立的本地插件市场 `iphone-use-no-telemetry`，同步更新 Codex、WorkBuddy 和豆包的安装与注册逻辑 | 保留原有 MCP 名称 `iphone_use` 及 20 个工具（18 个供模型调用，2 个供预览界面使用）；安装后应核对加载的是这个版本 |
 | 回归测试 | 用模拟 WDA 测试启动、截图和离线查找，拦截测试中的 DNS 与套接字连接；覆盖旧统计配置及状态探测重定向 | 可以在 Mac 上复查这些路径的行为 |
 
 保留 USB 控制、控件树、点击、滚动、输入、批处理、截图回退、实时预览、构建及恢复。上游作者的署名、许可证和第三方声明保留在仓库中。
@@ -21,7 +21,15 @@
 3. 在 iPhone 开启开发者模式，重启后确认开启。Xcode 成功构建并安装 WebDriverAgentRunner。首次启动时按手机提示信任自己的开发者证书，并在启动期间保持手机解锁。
 4. 在 iPhone 17、iOS 26.7.2、Xcode 27.2 的组合上，通过 `pua_ready(recover=true, screenshot=false)` 验证会话、前台 App 和页面读取。再用 `pua_launch_app` 打开系统计算器，工具返回 `foreground_verified=true`。
 
-其他设备可以从仓库根目录运行 `sh scripts/install.sh`，按 README 完成自己的设备配对和签名。[安装说明](../README.md) · [数据去向](../ANALYTICS.md)
+在另一台 Mac 上可从这个 fork 安装，再按 README 完成自己的设备配对和签名。
+
+```sh
+git clone https://github.com/ryan-yr/iPhone-use.git
+cd iPhone-use
+sh scripts/install.sh
+```
+
+[安装说明](../README.md) · [数据去向](../ANALYTICS.md)
 
 ## 网络与数据边界
 

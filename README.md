@@ -2,7 +2,7 @@
 
 **中文** · [English](README.en.md)
 
-[第二版修改清单、安装记录、网络边界与真机对比测试](docs/second-edition.md)
+[第二版修改清单、安装记录、网络边界与真机对比测试](https://github.com/ryan-yr/iPhone-use/blob/main/docs/second-edition.md)
 
 ![iPhone Use 在 Codex 中操作真实 iPhone 并实时展示手机屏幕](assets/iphone-use-demo.png)
 
