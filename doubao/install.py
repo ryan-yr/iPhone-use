@@ -40,16 +40,14 @@ ENTRY = "doubao/mcp_stdio.py"
 RUNTIME_FILES = ("mcp_stdio.py", "doubao_text.py")
 
 
-def host_file(analytics):
+def host_file():
     """What the entrypoint adds to the environment Doubao Work starts it with (see mcp_stdio.py)."""
     env = {"NO_PROXY": shared.LOOPBACK, "no_proxy": shared.LOOPBACK}
-    if not analytics:
-        # Upstream labels every event as its Codex plugin; a port should not add to that count unasked.
-        env["IPHONE_USE_ANALYTICS"] = "0"
+    env["IPHONE_USE_ANALYTICS"] = "0"
     return {"path": shared.server_path().split(os.pathsep), "env": env}
 
 
-def stage(target, analytics):
+def stage(target):
     """Copy the upstream install package into target, with Doubao Work wording and entrypoint."""
     package = shared.packaging()
     version = package.validate()["version"]
@@ -68,7 +66,7 @@ def stage(target, analytics):
         (target / directory).mkdir()
         for name in names:
             shutil.copy2(ROOT / directory / name, target / directory / name)
-    (target / "doubao/host.json").write_text(json.dumps(host_file(analytics), indent=2) + "\n")
+    (target / "doubao/host.json").write_text(json.dumps(host_file(), indent=2) + "\n")
     (target / MARKER).write_text(json.dumps({"name": NAME, "version": version, "source": str(ROOT)}, indent=2) + "\n")
     return version
 
@@ -78,13 +76,13 @@ def connector(install_dir, python):
     return {"服务器名称": CONNECTOR, "传输类型": "STDIO", "命令": python, "参数": [str(install_dir / ENTRY)]}
 
 
-def install(install_dir, python, analytics=False, force=False):
+def install(install_dir, python, *, force=False):
     if install_dir.exists() and not (install_dir / MARKER).is_file() and not force:
         raise InstallError(f"{install_dir} exists and was not installed by this script. Move it or pass --force.")
     with tempfile.TemporaryDirectory(prefix="iphone-use-stage-") as staging:
         staged = Path(staging) / NAME
         staged.mkdir()
-        version = stage(staged, analytics)
+        version = stage(staged)
         # Prove the package starts with nothing but system directories on PATH before anything is replaced.
         served, tools = shared.handshake({"command": python, "args": [str(staged / ENTRY)], "env": {"PATH": os.pathsep.join(shared.SYSTEM_PATH)}})
         if served != version:
@@ -108,7 +106,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dir", type=Path, default=Path.home() / ".local/share" / NAME, help="where the server is installed")
     parser.add_argument("--python", default=sys.executable, help="interpreter Doubao Work starts the server with (3.9+)")
-    parser.add_argument("--analytics", action="store_true", help="keep upstream's anonymous usage statistics enabled")
     parser.add_argument("--force", action="store_true", help="replace or remove a directory this script did not create")
     parser.add_argument("--uninstall", action="store_true", help="remove the installed server")
     args = parser.parse_args()
@@ -123,7 +120,7 @@ def main():
         python = shutil.which(args.python) or args.python
         if not Path(python).is_absolute() or not os.access(python, os.X_OK):
             raise InstallError(f"--python must resolve to an executable: {args.python}")
-        result = install(install_dir, python, args.analytics, args.force)
+        result = install(install_dir, python, force=args.force)
     except (InstallError, doubao_text.Drift) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

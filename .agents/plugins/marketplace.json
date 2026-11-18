@@ -1,7 +1,7 @@
 {
-  "name": "iphone-use-local",
+  "name": "iphone-use-no-telemetry",
   "interface": {
-    "displayName": "iPhone Use Local"
+    "displayName": "iPhone Use · No Telemetry"
   },
   "plugins": [
     {

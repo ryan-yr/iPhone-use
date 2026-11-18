@@ -134,6 +134,12 @@ def _diagnose(text):
     return [hint for needles, hint in cases if any(needle in text for needle in needles)]
 
 
+class _NoStatusRedirect(urllib.request.HTTPRedirectHandler):
+    """A local WDA health probe must end at its configured loopback endpoint."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 class SetupManager:
     def __init__(self, state_dir: Path = None, base_url="http://127.0.0.1:18100"):
         self.state_dir = state_directory(state_dir).resolve()
@@ -241,7 +247,7 @@ class SetupManager:
 
     def _probe_status(self):
         try:
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoStatusRedirect())
             request = urllib.request.Request(self.base_url + "/status", headers={"Accept": "application/json"})
             with opener.open(request, timeout=1.5) as response:
                 document = json.loads(response.read(1024 * 1024))

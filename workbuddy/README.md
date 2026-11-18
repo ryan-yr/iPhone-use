@@ -37,7 +37,7 @@ WorkBuddy 没有插件命令行，安装器按它自己放本地 MCP 的约定�
 
 - **解释器和 PATH 用绝对路径。** GUI 应用启动子进程时 PATH 只有系统目录，找不到 Homebrew 或 nvm 的 node。安装器把 node、npm、git、Xcode 命令所在目录写进 `env.PATH`。换了 Node 安装位置后重新运行安装器即可。
 - **本地回环不走代理。** `NO_PROXY` 包含 `127.0.0.1,localhost,::1`。
-- **匿名使用统计默认关闭。** 原版把所有事件标记为 Codex 插件来源，移植版不应混入这份统计。想保留原版默认行为，用 `--analytics` 安装。
+- 此版本移除了第三方使用统计。
 
 ## 与 Codex 版的差异
 
@@ -78,7 +78,7 @@ WorkBuddy 没有插件命令行，安装器按它自己放本地 MCP 的约定�
 ## 更新与卸载
 
 ```sh
-git pull --ff-only
+# 在本分支解压后的目录中运行
 python3 workbuddy/install.py
 ```
 

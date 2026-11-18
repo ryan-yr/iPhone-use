@@ -25,16 +25,8 @@ class AppTests(unittest.TestCase):
         self.setup.config = {}
         self.catalog = wda_apps.AppCatalog(Path(self.temp.name), self.setup)
 
-    @staticmethod
-    def apple():
-        return {"results": [
-            {"kind": "software", "bundleId": "com.cmbchina.MPBBank", "trackId": 392899425,
-             "trackName": "招商银行", "artistName": "招商银行"},
-            {"kind": "software", "bundleId": "com.cmbchina.cmblife", "trackId": 398453262,
-             "trackName": "掌上生活-招商银行信用卡", "artistName": "招商银行"}]}
-
     def test_catalog_exact_alias_and_case_preserving_bundle(self):
-        with patch.object(wda_apps, "fetch_apple", side_effect=AssertionError("must stay offline")), patch.object(wda_apps.subprocess, "run", side_effect=AssertionError("must stay offline")):
+        with patch.object(wda_apps.subprocess, "run", side_effect=AssertionError("must stay offline")):
             result = self.catalog.lookup("cmb", source="catalog", limit=1)
         self.assertTrue(result["ok"])
         self.assertEqual(result["candidates"][0]["bundle_id"], "com.cmbchina.MPBBank")
@@ -54,7 +46,7 @@ class AppTests(unittest.TestCase):
         self.assertGreaterEqual(len(bundles), 25)
         for row in doc["apps"]:
             self.assertTrue(wda_apps._valid_bundle(row["bundleId"]))
-            self.assertTrue(wda_apps._api_url(row["sourceUrl"]))
+            self.assertEqual(urllib.parse.urlsplit(row["sourceUrl"]).hostname, "itunes.apple.com")
             self.assertTrue(row["verifiedAt"])
             self.assertTrue(row["publisher"])
             self.assertTrue(row["aliases"])
@@ -125,7 +117,7 @@ class AppTests(unittest.TestCase):
 
     def test_auto_prioritises_installed_and_caches_privately(self):
         self.setup.config = {"udid": "00008150-ABCDEF0123456789"}
-        with patch.object(wda_apps.subprocess, "run", side_effect=self._run_device) as run, patch.object(wda_apps, "fetch_apple", side_effect=AssertionError("metadata already found")):
+        with patch.object(wda_apps.subprocess, "run", side_effect=self._run_device) as run:
             result = self.catalog.lookup("CMB")
             again = self.catalog.lookup("招行")
         self.assertEqual(run.call_count, 1)
@@ -170,70 +162,21 @@ class AppTests(unittest.TestCase):
         self.assertFalse(result["candidates"][0]["installed_verified"])
         self.assertTrue(result["warnings"])
 
-    def test_apple_parsing_deduplicates_and_excludes_invalid_metadata(self):
-        doc = self.apple()
-        doc["results"].extend([doc["results"][0], None, {"bundleId": "com.fake.app", "trackId": True, "trackName": "Fake"},
-                               {"kind": "song", "bundleId": "com.fake.song", "trackId": 1, "trackName": "Song"}])
-        rows = wda_apps.parse_apple(doc, "cn", "https://itunes.apple.com/lookup?id=392899425")
-        self.assertEqual(len(rows), 2)
-        self.assertEqual(rows[0]["bundle_id"], "com.cmbchina.MPBBank")
-        self.assertEqual(rows[0]["publisher"], "招商银行")
-
-    def test_apple_query_escaping_cache_and_no_device_metadata_transmission(self):
-        query = "招聘 & country=us $(anything)"
-        with patch.object(wda_apps, "fetch_apple", return_value=self.apple()) as fetch:
-            result = self.catalog.lookup(query, source="apple", limit=3)
-            self.catalog.lookup(query, source="apple", limit=3)
-        self.assertEqual(fetch.call_count, 1)
-        params = urllib.parse.parse_qs(urllib.parse.urlsplit(fetch.call_args.args[0]).query)
-        self.assertEqual(params["term"], [query])
-        self.assertEqual(params["country"], ["cn"])
-        self.assertEqual(set(params), {"term", "country", "media", "entity", "limit"})
-        self.assertFalse(result["candidates"][0]["installed_verified"])
-        self.assertEqual(os.stat(Path(self.temp.name) / "apps-apple-cache.json").st_mode & 0o777, 0o600)
-
-    def test_auto_unknown_app_uses_apple_once(self):
-        with patch.object(wda_apps, "fetch_apple", return_value=self.apple()) as fetch:
-            result = self.catalog.lookup("未知名称")
-        self.assertEqual(fetch.call_count, 1)
-        self.assertEqual(result["searched_sources"], ["installed", "catalog", "apple"])
-
-    def test_apple_rate_limit_does_not_make_another_request(self):
-        (Path(self.temp.name) / "apps-apple-request-times.json").write_text(json.dumps([time.time()] * 18))
-        with patch.object(wda_apps, "fetch_apple", side_effect=AssertionError("must not request")):
-            result = self.catalog.lookup("招商银行", source="apple")
-        self.assertFalse(result["ok"])
-        self.assertIn("budget", result["warnings"][0])
-
-    def test_failed_explicit_lookup_is_mcp_error_but_empty_success_is_not(self):
+    def test_auto_misses_and_explicit_apple_requests_remain_local(self):
         from iphone_use import result_content
-        missing = self.catalog.lookup("招商银行", source="installed")
-        self.assertFalse(missing["ok"])
-        self.assertTrue(result_content(missing)["isError"])
-        self.assertEqual(missing["error"]["code"], "app_lookup_unavailable")
-        with patch.object(wda_apps, "fetch_apple", side_effect=OSError("offline")):
-            failed = self.catalog.lookup("A missing app", source="apple")
-        self.assertTrue(result_content(failed)["isError"])
-        self.assertFalse(failed["error"]["uncertain"])
-        with patch.object(wda_apps, "fetch_apple", return_value={"results": []}):
-            empty = self.catalog.lookup("Different absent app", source="apple")
-        self.assertTrue(empty["ok"])
-        self.assertFalse(result_content(empty)["isError"])
-        self.assertEqual(empty["candidates"], [])
-        with patch.object(wda_apps, "fetch_apple", return_value={"results": []}):
-            auto_empty = self.catalog.lookup("Auto absent app", source="auto")
-        self.assertTrue(auto_empty["ok"])
-        self.assertFalse(result_content(auto_empty)["isError"])
-        self.assertTrue(auto_empty["warnings"])
-        self.assertEqual(auto_empty["candidates"], [])
-
-    def test_unsafe_network_destinations_and_redirects_rejected(self):
-        for url in ("http://itunes.apple.com/search", "https://example.com/search", "https://itunes.apple.com.evil.test/search",
-                    "https://user:password@itunes.apple.com/search", "https://itunes.apple.com/search#fragment"):
-            with self.assertRaises(ValueError):
-                wda_apps.fetch_apple(url)
-        with self.assertRaises(ValueError):
-            wda_apps._AppleRedirects().redirect_request(None, None, 302, "", {}, "https://example.com/search")
+        with patch("socket.getaddrinfo", side_effect=AssertionError("unexpected DNS")), \
+                patch("socket.socket.connect", side_effect=AssertionError("unexpected network")):
+            empty = self.catalog.lookup("Internal Project Canary")
+            self.assertTrue(empty["ok"])
+            self.assertEqual(empty["searched_sources"], ["installed", "catalog"])
+            self.assertEqual(empty["candidates"], [])
+            self.assertFalse(result_content(empty)["isError"])
+            rejected = self.catalog.lookup("Internal Project Canary", source="apple")
+            self.assertTrue(result_content(rejected)["isError"])
+            self.assertEqual(rejected["error"]["code"], "invalid_argument")
+            missing = self.catalog.lookup("Internal Project Canary", source="installed")
+            self.assertEqual(missing["error"]["code"], "app_lookup_unavailable")
+            self.assertTrue(result_content(missing)["isError"])
 
     def test_input_bounds(self):
         for kwargs in ({"query": ""}, {"query": "x" * 101}, {"query": "x", "country": "china"},

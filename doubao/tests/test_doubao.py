@@ -217,8 +217,6 @@ class InstallTests(unittest.TestCase):
         bare = {"command": sys.executable, "args": [str(entry)], "env": {"PATH": os.pathsep.join(installer.shared.SYSTEM_PATH)}}
         self.assertEqual(installer.shared.handshake(bare), (manifest["version"], 20))
 
-    def test_analytics_stays_on_only_when_asked(self):
-        self.assertNotIn("IPHONE_USE_ANALYTICS", installer.host_file(analytics=True)["env"])
 
     def test_install_ships_both_ports_runtime_and_doubao_worded_skills(self):
         result = installer.install(self.install_dir, sys.executable)

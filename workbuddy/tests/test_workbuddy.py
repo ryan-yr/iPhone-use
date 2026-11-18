@@ -164,10 +164,6 @@ class HostTextTests(unittest.TestCase):
             host_text.rewrite("new upstream wording", [("old wording", "x")], "INSTRUCTIONS")
         self.assertEqual(host_text.rewrite("new upstream wording", [("old wording", "x")], strict=False), "new upstream wording")
 
-    def test_analytics_stays_on_only_when_asked(self):
-        directory = Path("/tmp/wb/mcp-servers/iphone-use")
-        self.assertEqual(installer.server_entry(directory, "/usr/bin/python3", analytics=False)["env"]["IPHONE_USE_ANALYTICS"], "0")
-        self.assertNotIn("IPHONE_USE_ANALYTICS", installer.server_entry(directory, "/usr/bin/python3", analytics=True)["env"])
 
 
 def short_state_directory(case):
@@ -411,7 +407,7 @@ class InstallTests(unittest.TestCase):
 
     def test_install_ships_the_runtime_without_codex_manifests(self):
         self.install()
-        for name in ("server/iphone_use.py", "server/posthog.json", "tooling/forward.mjs", "assets/phone-screen.html",
+        for name in ("server/iphone_use.py", "tooling/forward.mjs", "assets/phone-screen.html",
                      "skills/iphone-use/references/apps.json", "scripts/phone.py", "workbuddy/host_text.py", installer.MARKER):
             self.assertTrue((self.install_dir / name).is_file(), name)
         for name in installer.CODEX_ONLY + ("workbuddy/install.py", "tests"):

@@ -69,7 +69,7 @@ for (const block of result.content ?? []) {
 
 需要把手机中的图片、视频或其他文件传回 Mac 使用时，参照 [AirDrop 文件传回 Mac](references/airdrop.md)，发送后到下载目录找到文件即可使用。
 
-已知并核验过的 bundle ID 可直接 launch；需要离线查常用 App 时用 `pua_apps(source="catalog", query=...)` 或 [常用 App 目录](references/apps.md)。未知或同名 App 用 `source="auto"` 查本机候选，仍无结果才查 Apple。不要连续猜 ID；招商银行主应用为 `com.cmbchina.MPBBank`。商店或目录记录不证明本机安装，`installed_verified=true` 才是安装证据。启动后准备下一步的观察会同时显示实际前台，不额外增加默认前台验收。
+已知并核验过的 bundle ID 可直接 launch；需要离线查常用 App 时用 `pua_apps(source="catalog", query=...)` 或 [常用 App 目录](references/apps.md)。未知或同名 App 用 `source="auto"` 查本机候选，无匹配时说明结果为空，只使用本地来源。不要连续猜 ID；招商银行主应用为 `com.cmbchina.MPBBank`。商店或目录记录不证明本机安装，`installed_verified=true` 才是安装证据。启动后准备下一步的观察会同时显示实际前台，不额外增加默认前台验收。
 
 - `pua_launch_app`：激活一次后继续；默认 `verify=false, observe="none"`。下一步需要新页面信息时设置 observe；关键入口确需证明目标 App / 页面时显式 `verify=true` 或传 `expect`。
 - `pua_tap`：优先使用 `selector`，从当前节点照抄 label / name / value / type，可加 enabled；标签很长或含会变化的时间、数字时用 `label_contains`。predicate 单独使用，保留实际标签里的换行、引号和反斜线；rect、visible、in_viewport 不是 selector 字段。同名匹配叠在同一位置（如 Cell 与其中的文字），或只有一个在屏幕内时，工具自行取该目标并在结果的 `target` 中说明；多个分开的匹配返回 `ambiguous_target` 和带 `index`、类型、位置、`tap` 坐标、`hittable` 的 candidates，按其中目标的 `tap` 坐标点击（或用同一 selector 加 `index`），不随意选第一项，也不必为此再观察。selector 失败或语义不足时用 iPhone 点坐标 x/y；observation_id 可选，提供时必须来自同一 Runtime，并仅核对 App / 视口上下文。已有页面信息足以定位时不额外读树或截图；切页、用户接管或旋转后按当前信息重新定位。

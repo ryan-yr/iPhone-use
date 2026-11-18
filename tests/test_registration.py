@@ -22,7 +22,7 @@ class RegistrationTests(unittest.TestCase):
         self.root=Path(self.directory.name).resolve()
         (self.root/"server").mkdir()
         (self.root/"server/iphone_use.py").write_text("# synthetic entrypoint\n")
-        self.installation={"pluginId":"iphone-use@iphone-use-local","installedPath":str(self.root),"version":"0.1.6"}
+        self.installation={"pluginId":"iphone-use@iphone-use-no-telemetry","installedPath":str(self.root),"version":"0.1.6"}
         self.config_home = self.root / "codex"
         self.config_home.mkdir()
         env = patch.dict(registration.os.environ, {"CODEX_HOME": str(self.config_home)})

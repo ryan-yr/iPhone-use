@@ -1,6 +1,8 @@
-# iPhone Use
+# iPhone Use · 无第三方统计版
 
 **中文** · [English](README.en.md)
+
+[第二版修改清单、安装记录、网络边界与真机对比测试](docs/second-edition.md)
 
 ![iPhone Use 在 Codex 中操作真实 iPhone 并实时展示手机屏幕](assets/iphone-use-demo.png)
 
@@ -8,7 +10,7 @@
 
 iPhone Use 使用 [WebDriverAgent](https://github.com/appium/WebDriverAgent)（WDA）与 iPhone 通信，包含本地 MCP 服务、安装与使用技能，以及实时屏幕 widget。它优先复用现有连接与构建；控件定位失败时，指导模型查看截图并尝试坐标点击。
 
-插件默认向独立的 PostHog 项目及 GA4 属性发送匿名使用统计，包括实际使用开始、工具调用、连接状态、耗时、错误类别，以及显式启动的 App 标识和公开目录名称（含 batch 中已完成的启动）。使用随机安装标识，不上传手机画面、输入内容、设备标识或已安装 App 清单。设置 `IPHONE_USE_ANALYTICS=0` 或 `DO_NOT_TRACK=1` 并重启 MCP 服务可关闭。详见 [埋点与分析说明](ANALYTICS.md)。
+本地修改版基于 0.3.16，保留原版 20 个工具。运行时移除了 PostHog 和 Google Analytics 上报，App 名称查询只使用手机安装列表和内置目录。页面和截图仍可交给 Codex，观察截图会按原版规则留存在 Mac。[数据去向](ANALYTICS.md)
 
 **使用前，需要先在你自己的 iPhone 上安装、签名并启动 WDA Runner。** WDA 是运行在手机上的执行服务；下面的提示词和 setup 流程可以让所用宿主的助手协助完成首次安装，已有健康的 WDA 可直接复用。
 
@@ -23,84 +25,9 @@ iPhone Use 使用 [WebDriverAgent](https://github.com/appium/WebDriverAgent)（W
 - **连接恢复改进**：完善超时与断线指引，自动恢复临时快照设置。
 - **长文本续传保护**：续传绑定原输入框，切换 App 或焦点后停止，避免误写。
 
-## 用一段提示词让 Codex 安装
+## 从本地源码安装
 
-将下面这段话复制到本机 Codex：
-
-```text
-请帮我安装和配置 iPhone Use：
-https://github.com/zhongerxin/iPhone-use
-
-先读取仓库 README 和安装脚本，检查本机 Codex CLI、Python、Node.js、npm、
-完整 Xcode，以及通过 USB 连接的 iPhone。把项目放到合适的本机目录，
-运行 sh scripts/install.sh 安装插件。
-
-如果当前聊天还没有加载新工具，明确告诉我重连或新开聊天后继续。
-工具可用后读取 iphone-use-setup 技能，检查现有配置，优先复用已有 WDA。
-首次配置时发现我的设备，使用我自己的 Apple 开发团队和可签名 bundle ID，
-获取固定版本 WDA、配置签名、构建并启动，直到 pua_ready 返回 ready=true，
-然后打开手机屏幕。不要照搬作者的设备标识或签名信息。
-
-缺少依赖时说明具体缺项并帮助安装。Apple 账号登录、设备信任、开发者模式
-或解锁需要我操作时，告诉我明确步骤，等我完成再继续。
-```
-
-安装插件后，当前聊天可能需要重新连接才能加载工具，流程可在重连后继续。Apple 账号登录、设备信任、开发者模式及手机解锁仍需本人在系统界面完成。
-
-仓库目前为私有，需要有 GitHub 访问权限，或者使用已取得的源代码包。
-
-## 在 WorkBuddy 和豆包工作中安装
-
-两者都支持通过 USB 操作真实 iPhone，并在侧边栏显示实时画面；共用本机的设备配置、WDA 构建和操作锁，已配置过的手机优先复用。依赖仍是 macOS、完整 Xcode、Python、Node.js / npm 和 USB iPhone，安装这两个适配版无需 Codex CLI。适配版默认关闭匿名使用统计。
-
-| 宿主 | 在源码目录运行 | 安装后的接入 |
-| --- | --- | --- |
-| [WorkBuddy](https://github.com/zhongerxin/iPhone-use/blob/main/workbuddy/README.md) | `python3 workbuddy/install.py` | 在「连接器管理」信任 `iphone_use`，新开会话 |
-| [豆包工作](https://github.com/zhongerxin/iPhone-use/blob/main/doubao/README.md) | `python3 doubao/install.py` | 按安装器输出新建 STDIO 连接器，上传两个技能，新开「本地电脑」任务 |
-
-将对应提示词发给本机的 WorkBuddy 或豆包工作。助手可执行本地安装；宿主界面的接入步骤若无法自动操作，会说明需要你完成的具体步骤。首次签名仍使用你自己的 Apple 账号和开发团队。
-
-### 发给 WorkBuddy 的提示词
-
-```text
-请在这台 Mac 上安装 iPhone Use，让 WorkBuddy 通过 USB 操作我的真实 iPhone：
-https://github.com/zhongerxin/iPhone-use
-
-先读取 README.md、workbuddy/README.md 和安装脚本，检查 Python、Node.js、npm、
-完整 Xcode 和 USB iPhone。克隆或复用本地源码，保留已有改动，
-在源码目录运行 python3 workbuddy/install.py；不要运行 Codex 安装脚本。
-在 WorkBuddy「连接器管理」里信任并启用 iphone_use，然后新开会话加载工具和技能。
-如果这些界面步骤需要我操作，给出具体位置，等我完成后继续。
-
-工具可用后读取 iphone-use-setup，先查询 setup status，复用已有配置、健康 WDA
-或正在运行的启动任务；首次配置使用我自己的设备和 Apple 开发团队完成签名与启动。
-确认 pua_ready 返回 ready=true 后调用一次 pua_screen()，在侧边栏显示实时手机画面，
-再在 iPhone 计算器中验证 12×34=408。Apple 登录、信任、开发者模式或解锁
-需要我接管时，说明具体步骤并等我完成；不要照搬作者的设备标识或签名信息。
-```
-
-### 发给豆包工作的提示词
-
-```text
-请在这台 Mac 上安装 iPhone Use，让豆包工作通过 USB 操作我的真实 iPhone：
-https://github.com/zhongerxin/iPhone-use
-
-在「本地电脑」任务中先读取 README.md、doubao/README.md 和安装脚本，
-检查 Python、Node.js、npm、完整 Xcode 和 USB iPhone。克隆或复用本地源码，
-保留已有改动，在源码目录运行 python3 doubao/install.py；不要运行 Codex 安装脚本。
-按安装器输出，在「插件 · 技能 · 伙伴」中新建名为 iphone_use 的 STDIO 连接器，
-命令和参数使用输出的绝对路径，并分别上传安装目录下的 iphone-use、iphone-use-setup
-两个技能文件夹。启用连接器和技能，再新开「本地电脑」任务；已有连接器更新后关闭再打开。
-如果这些界面步骤需要我操作，给出具体位置和路径，等我完成后继续。
-
-工具可用后读取 iphone-use-setup，先查询 setup status，复用已有配置、健康 WDA
-或正在运行的启动任务；首次配置使用我自己的设备和 Apple 开发团队完成签名与启动。
-确认 pua_ready 返回 ready=true 后调用一次 pua_screen()，在右侧 MCP App 显示实时手机画面，
-再在 iPhone 计算器中验证 12×34=408。Apple 登录、信任、开发者模式或解锁
-需要我接管时，说明具体步骤并等我完成；不要照搬作者的设备标识或签名信息。
-```
-
-如果工具没有加载，先确认连接器已启用，再新开会话 / 本地电脑任务。两个宿主同时使用同一部手机时，按共享操作锁的提示等待，避免同时操作。详细安装、更新和排查步骤见上表链接。
+在解压后的目录运行 `sh scripts/install.sh`，再重新连接 Codex。如果原版也已启用，停用原版插件，保留界面中名称为「iPhone Use · 无第三方统计」的这一项。安装器使用独立的本地插件市场，并注册原版使用的 `iphone_use` MCP 名称，已有设备配置可复用。重连后运行 `codex mcp get iphone_use --json` 可核对服务脚本路径所属的市场为 `iphone-use-no-telemetry`。此包还提供 WorkBuddy 和豆包适配器，其安装命令分别为 `python3 workbuddy/install.py` 和 `python3 doubao/install.py`。
 
 ## 安装依赖
 
@@ -119,7 +46,7 @@ Xcode 需要支持手机当前的 iOS 版本。无需越狱，也无需单独启
 
 手机端使用 [Appium 维护的 WebDriverAgent](https://github.com/appium/WebDriverAgent)。首次使用时，须通过 Xcode 用你自己的 Apple 账号与开发团队签名、安装并启动 `WebDriverAgentRunner`。
 
-推荐使用上面的安装提示词和下面的 `iphone-use-setup` 流程：Codex 获取本项目固定版本的 WDA，配置你的设备和签名，再完成构建、部署与启动；需要你完成 Apple 登录、设备信任、开发者模式或解锁时，会提示具体步骤。
+安装后使用 `iphone-use-setup` 流程：Codex 获取本项目固定版本的 WDA，配置你的设备和签名，再完成构建、部署与启动；需要你完成 Apple 登录、设备信任、开发者模式或解锁时，会提示具体步骤。
 
 如需在 Xcode 手动处理：
 
@@ -132,8 +59,6 @@ Xcode 需要支持手机当前的 iOS 版本。无需越狱，也无需单独启
 ### 安装插件
 
 ```sh
-git clone https://github.com/zhongerxin/iPhone-use.git
-cd iPhone-use
 sh scripts/install.sh
 ```
 
@@ -212,10 +137,9 @@ sh scripts/install.sh
 
 运行目录权限为 700，私有配置和图像文件为 600。明确调用的截图有保留上限，预览流不落盘。签名材料、设备数据、运行日志与依赖目录均不进入源代码发布包。`WDA_URL` 可指定本机地址，默认转发端口为 18100，远程地址会被拒绝。
 
-更新已克隆的仓库：
+更新本地修改版时，在新版的解压目录中运行以下命令。
 
 ```sh
-git pull --ff-only
 sh scripts/install.sh
 ```
 

@@ -45,7 +45,7 @@ def retire_previous_registration():
 
 def main():
     installation=json.load(sys.stdin)
-    if installation.get("pluginId")!="iphone-use@iphone-use-local":
+    if installation.get("pluginId")!="iphone-use@iphone-use-no-telemetry":
         raise SystemExit("Expected the iPhone Use plugin installation result.")
     root=Path(installation["installedPath"]).resolve(strict=True)
     server=root/"server"/"iphone_use.py"

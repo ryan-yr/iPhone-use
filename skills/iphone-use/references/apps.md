@@ -1,6 +1,6 @@
 # 查找真实 app bundle ID
 
-已经知道且核验过的 bundle ID 可直接启动，不为每次 launch 重查安装清单。查常用 App 可先用 `pua_apps(source="catalog")` 离线检索本地目录；未知应用或需要区分用户实际安装的版本时用 source=auto，先查选定 iPhone 的已安装应用，再查本地目录，仍无候选才查 Apple。不要凭品牌名拼写 bundle ID，也不要连续试多个猜测值。
+已经知道且核验过的 bundle ID 可直接启动，不为每次 launch 重查安装清单。查常用 App 可先用 `pua_apps(source="catalog")` 离线检索本地目录；未知应用或需要区分用户实际安装的版本时用 source=auto，先查选定 iPhone 的已安装应用，再查本地目录，没有匹配时返回空结果。不要凭品牌名拼写 bundle ID，也不要连续试多个猜测值。
 
 ```json
 {"query":"招商银行","source":"auto"}
@@ -8,36 +8,15 @@
 
 本例应返回 `com.cmbchina.MPBBank`。检查名称、发布者和候选来源后，把 bundle_id 传给 `pua_launch_app`。正常启动乐观继续；下一步需要未知页面信息时在该次 launch 设置 observe，顺带查看实际前台和目标页，不另加默认启动验收。招商银行主应用与掌上生活信用卡应用是两个应用。
 
-- `source=auto`：先读取已选设备的安装列表（本地缓存 300 秒），合并本地目录。精确名称/别名优先；精确匹配存在时不混入子串候选。无本地候选才调用 Apple。
+- `source=auto`：先读取已选设备的安装列表（本地缓存 300 秒），合并本地目录。精确名称/别名优先；精确匹配存在时不混入子串候选。所有查询均在本地完成。
 - `source=installed`：只查已选 iPhone，缺少选定设备或读取失败时返回可执行的诊断。英文品牌别名可用本地目录映射到安装列表的 bundle ID。
 - `source=catalog`：离线查本文件和 `apps.json` 中 36 个经过 Apple 查询核验的应用。完全不查询 iPhone 或网络。
-- `source=apple`：查询指定 App Store 国家/地区的 Apple 公共 API，默认 `country=cn`，可指定 `hk`、`us` 等。返回商店候选，不意味着安装在用户手机上。
 
 `installed_verified=true` 表示选定设备安装列表确认了候选，`installation_checked` 表示本次查询是否成功获取过安装列表（最多缓存五分钟）；false 不能独立解释为未安装。候选中 `verified_at` 是来源核验时间。查询只返回匹配应用，不回传整份设备清单。设备安装清单和缓存保存在仓库外的私有状态目录，权限为 600；不会将设备信息或安装清单发送给 Apple。
 
-## Apple 官方 API
+## 无匹配时
 
-[Apple iTunes Search API 文档](https://performance-partners.apple.com/search-api) 说明了 `software`、国家/地区参数、JSON、缓存和约每分钟 20 次查询的指导限制。该公开接口查询 App Store 应用元数据，无需用户的 Apple ID、密码或 API 密钥：
-
-```text
-https://itunes.apple.com/search?term=招商银行&country=cn&media=software&entity=software&limit=10
-https://itunes.apple.com/lookup?id=392899425&country=cn&entity=software
-```
-
-先用名称搜索并核对实际发布者与产品，再用稳定的 `trackId` Lookup 刷新。官方文档说明 ID 查询误匹配更少；不要自动选名称搜索第一条。`pua_apps` 使用 URL 编码、5 秒网络超时、响应大小限制、Apple HTTPS 域名/路径和跳转限制、15 分钟缓存和每分钟最多 18 次新请求，避免长时间阻塞或重复撞限流。刷新脚本按地区批量 Lookup 已审核 ID。
-
-```sh
-python3 scripts/update_app_catalog.py --search "应用名称" --country cn
-python3 scripts/update_app_catalog.py --refresh
-```
-
-搜索只输出候选，不自动加入目录。维护者核对 App Store 页面、发布者和具体产品后再添加记录；刷新仅更新已有审核记录的商店元数据，缺失 ID 或 bundle ID 变化时停止并保留原目录。
-
-## 范围与失败处理
-
-Apple 商店搜索存在同名、地区和下架限制，企业内部、开发版或未上架应用可能不存在。[App Store Connect 的 bundleIds 接口](https://developer.apple.com/documentation/appstoreconnectapi/get-v1-bundleids) 只能列出开发者团队自身注册的 ID，不能当作所有第三方应用的目录。已安装设备列表是确认用户实际应用的更直接证据。
-
-本次实测 `富途牛牛` 在 CN 搜索没有目标应用，在 HK 查询才取得 `cn.futu.FutuTraderPhone`。遇到空结果先查 `source=installed`，或按用户实际商店地区查询；不要把地区搜索不到解释为没有安装。飞书与国际版 Lark、微信与企业微信、普通版与极速版/开发版也应分别核对。
+核对应用名称或 bundle ID，再用已连接 iPhone 的安装列表确认。保留查询词在本地，只使用设备和包内目录。
 
 若 MCP 查询本身不可用，可用固定的 Xcode 命令直接读取本地安装列表（`--include-all-apps` 必须保留：devicectl 默认仅显示开发应用），在本地过滤目标名称/bundle ID 后启动。下一步所需观察也可顺带判断启动状态。文件写到仓库外私有目录，不保存完整安装清单到项目：
 

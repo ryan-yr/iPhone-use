@@ -74,11 +74,9 @@ def server_path():
     return os.pathsep.join(dict.fromkeys(directories + list(SYSTEM_PATH)))
 
 
-def server_entry(install_dir, python, analytics):
+def server_entry(install_dir, python):
     env = {"PATH": server_path(), "NO_PROXY": LOOPBACK, "no_proxy": LOOPBACK}
-    if not analytics:
-        # Upstream labels every event as its Codex plugin; a port should not add to that count unasked.
-        env["IPHONE_USE_ANALYTICS"] = "0"
+    env["IPHONE_USE_ANALYTICS"] = "0"
     return {"command": python, "args": [str(install_dir / "workbuddy" / "mcp_server.py")], "env": env}
 
 
@@ -169,7 +167,7 @@ def write_config(path, config):
     return True
 
 
-def install(home, python, analytics=False, force=False):
+def install(home, python, *, force=False):
     if not home.is_dir():
         raise InstallError(f"{home} does not exist. Start WorkBuddy once, or pass --home.")
     install_dir = home / "mcp-servers" / NAME
@@ -187,7 +185,7 @@ def install(home, python, analytics=False, force=False):
         staged = Path(staging) / NAME
         staged.mkdir()
         version = stage(staged)
-        entry = server_entry(install_dir, python, analytics)
+        entry = server_entry(install_dir, python)
         # Prove the package starts under WorkBuddy's reduced environment before anything is replaced.
         served, tools = handshake({**entry, "args": [str(staged / "workbuddy" / "mcp_server.py")]})
         if served != version:
@@ -223,7 +221,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", type=Path, default=Path.home() / ".workbuddy", help="WorkBuddy data directory")
     parser.add_argument("--python", default=sys.executable, help="interpreter WorkBuddy starts the server with (3.9+)")
-    parser.add_argument("--analytics", action="store_true", help="keep upstream's anonymous usage statistics enabled")
     parser.add_argument("--force", action="store_true", help="replace an existing server entry or directory this script did not create")
     parser.add_argument("--uninstall", action="store_true", help="remove the server entry, the installed code and the skills")
     args = parser.parse_args()
@@ -238,7 +235,7 @@ def main():
         python = shutil.which(args.python) or args.python
         if not Path(python).is_absolute() or not os.access(python, os.X_OK):
             raise InstallError(f"--python must resolve to an executable: {args.python}")
-        result = install(home, python, args.analytics, args.force)
+        result = install(home, python, force=args.force)
     except (InstallError, host_text.Drift) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

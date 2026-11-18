@@ -50,7 +50,7 @@ python3 doubao/install.py
 下面几条是在豆包工作 2.32.1 上实测的，入口 [mcp_stdio.py](mcp_stdio.py) 按它们来适配：
 
 - **一个常驻进程。** 连接器启用时豆包工作启动一个服务进程，一直用到连接器关闭或应用退出，所有任务共用。进程不在沙箱里，能访问 USB、Xcode 和 `~/.local/share/iphone-use`。
-- **PATH 由安装器补齐。** 连接器表单里不填环境变量。安装器把 node、npm、git、Xcode 命令所在目录和「本地回环不走代理」记在安装目录的 `doubao/host.json`，入口启动时补进环境。换了 Node 安装位置后重新运行安装器。匿名使用统计默认关闭（原版把所有事件标记为 Codex 插件来源），想保留用 `--analytics` 安装。
+- **PATH 由安装器补齐。** 连接器表单里不填环境变量。安装器把 node、npm、git、Xcode 命令所在目录和「本地回环不走代理」记在安装目录的 `doubao/host.json`，入口启动时补进环境。换了 Node 安装位置后重新运行安装器。此版本移除了第三方使用统计。
 - **手机屏幕在侧边栏。** 豆包工作支持 MCP App，`pua_screen()` 的画面在右侧「MCP App」标签页里打开。原版让 READY 也带画面，入口去掉了这一处，并在说明里告诉模型：本对话第一次 READY 后调用一次 `pua_screen()`。
 - **面板自己的工具调用会被转发。** 所以取帧和底部三个按钮都按原版的方式工作，不需要 WorkBuddy 版那套资源读取和独立画面进程。
 - **画面每秒 4 次取帧，按采集节奏回放。** widget 每 250 毫秒取一次帧。入口把手机端画面流设为每秒 30 帧、半尺寸，并换用 WorkBuddy 版的回放逻辑：每次应答带回上次之后的所有帧，页面按采集时的间隔依次画出来。帧率与手机出帧一致（iPhone 17 Pro Max 上约每秒 28 帧，上限在手机端），画面比手机慢约 0.3 秒。
@@ -72,7 +72,7 @@ mkdir -p ~/.local/share/iphone-use/doubao && touch ~/.local/share/iphone-use/dou
 ## 更新与卸载
 
 ```sh
-git pull --ff-only
+# 在本分支解压后的目录中运行
 python3 doubao/install.py
 ```
 

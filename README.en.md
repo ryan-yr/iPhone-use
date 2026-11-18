@@ -1,6 +1,8 @@
-# iPhone Use
+# iPhone Use · No Telemetry
 
 [中文](README.md) · **English**
+
+[Fork changes, installation notes, network exposure and device benchmark (Chinese)](docs/second-edition.md)
 
 ![iPhone Use controlling a real iPhone in Codex with a live screen preview](assets/iphone-use-demo.png)
 
@@ -8,7 +10,7 @@ Let Codex, WorkBuddy, or Doubao Work operate your real iPhone over USB. Describe
 
 The plugin connects to [WebDriverAgent](https://github.com/appium/WebDriverAgent) (WDA). It includes a local MCP server, setup and usage skills, and a live screen widget. It reuses healthy connections and existing builds; when element targeting fails, it guides the model to inspect a screenshot and try coordinates.
 
-The plugin sends anonymous usage statistics to its own PostHog project and GA4 property by default: usage starts, tool calls, connection results, durations, error categories, and explicitly launched App identifiers with public catalog names (including completed batch launches). It uses a random installation ID and never uploads phone images, input text, device identifiers or an installed-App inventory. Set `IPHONE_USE_ANALYTICS=0` or `DO_NOT_TRACK=1` and restart the MCP server to disable it. See [analytics documentation](ANALYTICS.md).
+This local fork of 0.3.16 preserves all 20 tools. Usage telemetry is removed. App lookup uses the selected device and the bundled catalog. Codex still receives requested phone content. Observation screenshots retain their original local storage behavior. [Data handling](ANALYTICS.md)
 
 **Before using iPhone Use, install, sign, and start WDA Runner on your own iPhone.** WDA is the on-device execution service. The prompts and setup workflow below can help your host assistant complete the initial installation; a healthy existing WDA can be reused.
 
@@ -23,93 +25,9 @@ October 9–13, 2026. See the [changelog](CHANGELOG.md) for details.
 - **Connection recovery improvements**: clearer timeout and disconnect guidance, with automatic restoration of temporary snapshot settings.
 - **Safer long-text continuation**: input stays bound to the original field and stops when the app or focus changes.
 
-## Ask Codex to install it
+## Install this local source
 
-Paste this prompt into Codex running on your Mac:
-
-```text
-Install and configure iPhone Use for me:
-https://github.com/zhongerxin/iPhone-use
-
-Read the repository README and installation script first. Check Codex CLI,
-Python, Node.js, npm, full Xcode, and the iPhone connected over USB.
-Clone the project into a suitable local directory and run sh scripts/install.sh.
-
-If this chat cannot load the new tools, tell me to reconnect or start a new chat
-and continue there. Once tools are available, read the iphone-use-setup skill.
-Inspect existing configuration and reuse healthy WDA. For initial setup,
-discover my device, use my own Apple development team and signable bundle ID,
-fetch the pinned WDA, configure signing, build and start it. Continue until
-pua_ready returns ready=true, then show the phone screen. Do not reuse the
-author's device identifiers or signing configuration.
-
-Help resolve missing dependencies. If Apple account login, device trust,
-Developer Mode, or unlocking needs my input, explain the exact steps and wait
-for me to complete them before continuing.
-```
-
-A reconnect may be required to load newly installed tools. Apple account login, device trust, Developer Mode, and unlocking must be completed by the device owner in the system UI. The repository is currently private; GitHub access or a source package is required.
-
-## Install in WorkBuddy or Doubao Work
-
-Both hosts can control a real iPhone over USB and show its live screen in a sidebar. They share local device configuration, WDA builds, and the operation lock, so an existing setup is reused. The requirements are macOS, full Xcode, Python, Node.js / npm, and a USB-connected iPhone; these adapters do not require Codex CLI. Anonymous usage statistics are disabled by default in both adapters.
-
-| Host | Run from the source directory | Connect after installation |
-| --- | --- | --- |
-| [WorkBuddy](https://github.com/zhongerxin/iPhone-use/blob/main/workbuddy/README.md) | `python3 workbuddy/install.py` | Trust `iphone_use` in Connector Management, then start a new chat |
-| [Doubao Work](https://github.com/zhongerxin/iPhone-use/blob/main/doubao/README.md) | `python3 doubao/install.py` | Add a STDIO connector using the installer output, upload both skills, then start a Local Computer task |
-
-Paste the matching prompt into the host running on your Mac. The assistant can perform the local installation and explain any host UI steps it cannot complete. First-time signing uses your own Apple account and development team.
-
-### Prompt for WorkBuddy
-
-```text
-Install iPhone Use on this Mac so WorkBuddy can operate my real iPhone over USB:
-https://github.com/zhongerxin/iPhone-use
-
-Read README.en.md, workbuddy/README.md, and the installer first. Check Python,
-Node.js, npm, full Xcode, and the USB iPhone. Clone or reuse a local checkout,
-preserve existing changes, and run python3 workbuddy/install.py from its root.
-Do not run the Codex installer. Trust and enable iphone_use in WorkBuddy's
-Connector Management, then start a new chat to load the tools and skills.
-If I need to complete a UI step, give its exact location and wait for me.
-
-Once tools are available, read iphone-use-setup and check setup status first.
-Reuse existing configuration, healthy WDA, or an active startup job. For initial
-setup, use my own device and Apple development team to sign and start WDA.
-After pua_ready returns ready=true, call pua_screen() once to show the live
-phone sidebar, then verify 12×34=408 in the iPhone Calculator.
-For Apple login, trust, Developer Mode, or unlocking, explain the steps and
-wait for me. Do not copy the author's device identifiers or signing settings.
-```
-
-### Prompt for Doubao Work
-
-```text
-Install iPhone Use on this Mac so Doubao Work can operate my real iPhone over USB:
-https://github.com/zhongerxin/iPhone-use
-
-In a Local Computer task, read README.en.md, doubao/README.md, and the installer.
-Check Python, Node.js, npm, full Xcode, and the USB iPhone. Clone or reuse a local
-checkout, preserve existing changes, and run python3 doubao/install.py from
-its root. Do not run the Codex installer. In Plugins · Skills · Partners, create
-an iphone_use STDIO connector with the absolute command and argument paths
-printed by the installer. Upload the iphone-use and iphone-use-setup skill
-folders from the installation directory. Enable the connector and both skills,
-then start a new Local Computer task. Toggle an existing connector off and on
-after updating. Give exact UI locations and paths for steps I need to complete,
-and wait for me before continuing.
-
-Once tools are available, read iphone-use-setup and check setup status first.
-Reuse existing configuration, healthy WDA, or an active startup job. For initial
-setup, use my own device and Apple development team to sign and start WDA.
-After pua_ready returns ready=true, call pua_screen() once to show the live
-phone in the right MCP App panel, then verify 12×34=408 in the iPhone Calculator.
-For Apple login, trust, Developer Mode, or unlocking, explain the steps and
-wait for me. Do not copy the author's device identifiers or signing settings.
-```
-
-If tools are missing, confirm the connector is enabled and start a new chat / Local Computer task. When both hosts use the same phone, follow the shared lock's waiting guidance. See the linked host READMEs for installation, updates, and troubleshooting.
+From the extracted directory run `sh scripts/install.sh`, then reconnect Codex. Disable the original plugin if it is also enabled. Select “iPhone Use · 无第三方统计”. The fork uses its own local marketplace and the original `iphone_use` MCP name. The WorkBuddy and Doubao adapters use the same runtime.
 
 ## Requirements
 
@@ -141,8 +59,6 @@ After installing the plugin and configuring USB connectivity, start phone tasks 
 ## Install and connect
 
 ```sh
-git clone https://github.com/zhongerxin/iPhone-use.git
-cd iPhone-use
 sh scripts/install.sh
 ```
 
@@ -219,7 +135,6 @@ New installations use `~/.local/share/iphone-use/`. Set `IPHONE_USE_STATE_DIR` f
 Runtime directories use mode 700 and private configuration / image files use 600. Explicit screenshots have retention limits; preview streams stay in memory. Signing material, device data, logs, and dependency directories are excluded from source packages. `WDA_URL` accepts a local address; the default forwarded port is 18100, and remote addresses are rejected.
 
 ```sh
-git pull --ff-only
 sh scripts/install.sh
 ```
 

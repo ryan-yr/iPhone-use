@@ -1,13 +1,8 @@
-"""Verified app identifiers from the selected device and Apple's public catalog.
-
-Only matching app metadata leaves this component. The full installed-app list is
-kept in a private, short-lived local cache and is never sent to Apple.
-"""
+"""Local bundle ID lookup using the selected device and the bundled catalog."""
 from __future__ import annotations
 
 import contextlib
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -16,15 +11,10 @@ import re
 import subprocess
 import tempfile
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
 
 
 CATALOG_PATH = Path(__file__).resolve().parent.parent / "skills/iphone-use/references/apps.json"
 INSTALLED_TTL = 300
-APPLE_TTL = 900
-MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
 def _now():
@@ -57,62 +47,6 @@ def _write(path, value):
 
 def _valid_bundle(value):
     return isinstance(value, str) and bool(re.fullmatch(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+", value))
-
-
-def _api_url(url):
-    parsed = urllib.parse.urlsplit(url)
-    return (parsed.scheme == "https" and parsed.hostname == "itunes.apple.com"
-            and not parsed.username and not parsed.password and parsed.port in (None, 443)
-            and parsed.path in ("/search", "/lookup") and not parsed.fragment)
-
-
-class _AppleRedirects(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        if not _api_url(newurl):
-            raise ValueError("Apple catalog redirected outside the allowed HTTPS API.")
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
-
-
-def fetch_apple(url):
-    """Fetch JSON only from the fixed Apple HTTPS endpoints, with a 5s timeout."""
-    if not _api_url(url):
-        raise ValueError("Only https://itunes.apple.com/search or /lookup is allowed.")
-    request = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "iPhone-use/0.3"})
-    with urllib.request.build_opener(_AppleRedirects()).open(request, timeout=5) as response:
-        if not _api_url(response.geturl()):
-            raise ValueError("Apple catalog returned an unexpected response URL.")
-        raw = response.read(MAX_RESPONSE_BYTES + 1)
-    if len(raw) > MAX_RESPONSE_BYTES:
-        raise ValueError("Apple catalog response exceeded the size limit.")
-    document = json.loads(raw.decode("utf-8"))
-    if not isinstance(document, dict) or not isinstance(document.get("results"), list):
-        raise ValueError("Apple catalog returned an unexpected JSON shape.")
-    return document
-
-
-def parse_apple(document, country, source_url, verified_at=None):
-    """Keep identifiers and publisher evidence, without promotional assets."""
-    rows = []
-    seen = set()
-    for app in document.get("results", []):
-        if not isinstance(app, dict) or app.get("kind") not in (None, "software"):
-            continue
-        bundle = app.get("bundleId")
-        track_id = app.get("trackId")
-        name = app.get("trackName")
-        if not _valid_bundle(bundle) or not isinstance(name, str) or not name.strip():
-            continue
-        if isinstance(track_id, bool) or not isinstance(track_id, int) or track_id <= 0:
-            continue
-        if bundle in seen:
-            continue
-        seen.add(bundle)
-        rows.append({"name": name[:200], "aliases": [], "bundle_id": bundle,
-                     "track_id": track_id, "store_name": name[:200], "publisher": str(app.get("artistName", ""))[:200],
-                     "country": country, "store_url": f"https://apps.apple.com/{country}/app/id{track_id}",
-                     "source_url": source_url, "verified_at": verified_at or _now(),
-                     "origin": "apple", "installed_verified": False, "installation_checked": False})
-    return rows
 
 
 class AppCatalog:
@@ -196,42 +130,6 @@ class AppCatalog:
             with contextlib.suppress(FileNotFoundError):
                 os.unlink(name)
 
-    def _apple(self, query, country, limit):
-        url = "https://itunes.apple.com/search?" + urllib.parse.urlencode(
-            {"term": query, "country": country, "media": "software", "entity": "software", "limit": limit})
-        key = hashlib.sha256(url.encode()).hexdigest()
-        cache_path = self.state_dir / "apps-apple-cache.json"
-        cache = _read(cache_path, {})
-        if not isinstance(cache, dict):
-            cache = {}
-        entry = cache.get(key, {})
-        if (isinstance(entry, dict) and isinstance(entry.get("fetched_at"), (int, float))
-                and 0 <= time.time() - entry["fetched_at"] < APPLE_TTL and isinstance(entry.get("apps"), list)):
-            return entry["apps"], None
-        # The official API recommends approximately 20 requests/minute; cap at 18.
-        lock_path = self.state_dir / ".apps-apple.lock"
-        with open(lock_path, "a") as lock:
-            lock_path.chmod(0o600)
-            fcntl.flock(lock, fcntl.LOCK_EX)
-            rate_path = self.state_dir / "apps-apple-request-times.json"
-            times = _read(rate_path, [])
-            times = [stamp for stamp in times if isinstance(stamp, (int, float)) and 0 <= time.time() - stamp < 60] if isinstance(times, list) else []
-            if len(times) >= 18:
-                return [], "Apple catalog request budget reached. Use source=catalog/installed or retry after one minute."
-            _write(rate_path, [*times, time.time()])
-        try:
-            rows = parse_apple(fetch_apple(url), country, url)
-            cache = {cache_key: value for cache_key, value in cache.items()
-                     if isinstance(value, dict) and isinstance(value.get("fetched_at"), (int, float))
-                     and 0 <= time.time() - value["fetched_at"] < APPLE_TTL}
-            cache[key] = {"fetched_at": time.time(), "apps": rows}
-            _write(cache_path, cache)
-            return rows, None
-        except (OSError, ValueError, urllib.error.URLError) as error:
-            if isinstance(error, urllib.error.HTTPError) and error.code in (403, 429):
-                return [], "Apple catalog rejected/throttled the request. Do not retry repeatedly; use local catalog/installed discovery."
-            return [], "Apple catalog request failed or timed out. Try source=catalog/installed or another storefront; do not guess bundle IDs."
-
     @staticmethod
     def _score(row, query):
         target = _normalise(query)
@@ -243,9 +141,9 @@ class AppCatalog:
     def lookup(self, query: str, country="cn", source="auto", limit=10):
         if (not isinstance(query, str) or not 1 <= len(query.strip()) <= 100
                 or not isinstance(country, str) or not re.fullmatch(r"[A-Za-z]{2}", country)
-                or not isinstance(source, str) or source not in {"auto", "catalog", "installed", "apple"}
+                or not isinstance(source, str) or source not in {"auto", "catalog", "installed"}
                 or isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 30):
-            return {"ok": False, "error": {"code": "invalid_argument", "message": "query needs 1–100 characters, country two letters, source auto/catalog/installed/apple, and limit 1–30.", "uncertain": False}}
+            return {"ok": False, "error": {"code": "invalid_argument", "message": "query needs 1–100 characters, country two letters, source auto/catalog/installed, and limit 1–30.", "uncertain": False}}
         query, country = query.strip(), country.lower()
         catalog = self._catalog()
         warnings, searched, candidates = [], [], []
@@ -265,13 +163,6 @@ class AppCatalog:
         if source in {"auto", "catalog"}:
             searched.append("catalog")
             candidates.extend(row for row in catalog if self._score(row, query))
-        apple_error=None
-        if source == "apple" or (source == "auto" and not candidates):
-            searched.append("apple")
-            apple, apple_error = self._apple(query, country, limit)
-            candidates.extend(apple)
-            if apple_error:
-                warnings.append(apple_error)
         installed_ids = {row["bundle_id"] for row in installed}
         merged = {}
         for row in candidates:
@@ -290,7 +181,7 @@ class AppCatalog:
         exact = [row for row in ranked if self._score(row, query) == 2]
         if exact:
             ranked = exact
-        ok=not (source == "installed" and not installation_checked) and not (source in {"apple", "auto"} and apple_error is not None)
+        ok=not (source == "installed" and not installation_checked)
         result={"ok": ok,
                 "query": query, "country": country, "source": source, "candidates": ranked[:limit],
                 "total_matches": len(ranked), "searched_sources": searched, "warnings": warnings,
